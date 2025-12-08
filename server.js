@@ -9,4 +9,7 @@ app.use(bodyParser.json());
 app.use("/payment", require("./routes/createPayment"));
 app.use("/webhook", require("./routes/webhook"));
 
-app.listen(4000, () => console.log("Backend running on 4000"));
+const port = process.env.PORT || 4000;
+app.listen(port, '0.0.0.0', () => {
+  console.log(`Backend running on ${port}`);
+});
