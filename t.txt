@@ -1,0 +1,105 @@
+npm install prisma@6.3.1 @prisma/client@6.3.1
+npx prisma init
+DATABASE_URL="postgresql://postgres:YOURPASS@localhost:5432/YOURDB"
+
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+npx prisma migrate dev --name init
+
+// schema
+/* -------------------------
+      User (ตัวอย่าง)
+-------------------------- */
+model User {
+  id        Int       @id @default(autoincrement())
+  email     String    @unique
+  name      String?
+  createdAt DateTime  @default(now())
+
+  orders    Order[]
+}
+
+/* -------------------------
+        Package
+-------------------------- */
+model Package {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String?
+  price       Int        // หน่วยเป็น THB (เช่น 100 = 100 บาท)
+  currency    String     @default("thb")
+  active      Boolean    @default(true)
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  orders      Order[]
+}
+
+/* -------------------------
+        Order
+-------------------------- */
+model Order {
+  id            Int       @id @default(autoincrement())
+  userId        Int
+  packageId     Int
+
+  // ราคา snapshot ตอนสร้าง order
+  amount        Int
+  currency      String     @default("thb")
+
+  // pending = ยังไม่จ่าย, paid = ชำระสำเร็จ, expired = หมดเวลา, failed = ล้มเหลว
+  status        OrderStatus   @default(pending)
+
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  // Relation
+  user          User        @relation(fields: [userId], references: [id])
+  package       Package     @relation(fields: [packageId], references: [id])
+  payment       Payment?
+}
+
+/* -------------------------
+        Payment (Omise)
+-------------------------- */
+model Payment {
+  id              Int      @id @default(autoincrement())
+  orderId         Int      @unique
+
+  // เก็บ payment_id จาก Omise (เช่น paym_XXXXX)
+  omiseId         String   @unique
+
+  // QR code (base64 หรือ URL) 
+  qrCode          String?
+
+  // timestamps จาก Omise
+  expiresAt       DateTime?     // ตอนที่ Omise บอกว่าจะหมดอายุ
+  sourceId        String?       // ถ้ามี source (อย่างเช่น source_xxxx)
+
+  // status จาก Omise
+  omiseStatus     String?       // เช่น pending, successful, expired, failed
+  lastEvent       String?       // event ล่าสุด เช่น charge.completed
+
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Relation
+  order           Order      @relation(fields: [orderId], references: [id])
+}
+
+enum OrderStatus {
+  pending
+  paid
+  expired
+  failed
+}

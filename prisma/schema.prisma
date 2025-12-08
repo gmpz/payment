@@ -1,0 +1,57 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/* -------------------------
+      User (ตัวอย่าง)
+-------------------------- */
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String?
+  orders    Order[]
+  createdAt DateTime @default(now())
+}
+
+/* -------------------------
+        Package
+-------------------------- */
+model Package {
+  id        String   @id @default(cuid())
+  name      String
+  price     Int      // THB
+  orders    Order[]
+}
+
+
+/* -------------------------
+        Order
+-------------------------- */
+model Order {
+  id         String       @id @default(cuid())
+  userId     String
+  packageId  String
+  amount     Int
+  status     String       @default("pending") // pending, paid, expired, failed
+  chargeId   String?      @unique
+  createdAt  DateTime     @default(now())
+
+  user       User         @relation(fields: [userId], references: [id])
+  package    Package      @relation(fields: [packageId], references: [id])
+}
+
+
+
+enum OrderStatus {
+  pending
+  paid
+  expired
+  failed
+}

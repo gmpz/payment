@@ -1,3 +1,6 @@
+const { PrismaClient } = require("@prisma/client");
+const prisma = new PrismaClient();
+
 const express = require("express");
 const router = express.Router();
 const omise = require("omise")({
@@ -8,34 +11,64 @@ const omise = require("omise")({
 const orders = {};
 
 router.post("/create", async (req, res) => {
-  const { amount } = req.body;
-
+  
+  const { userId, packageId } = req.body;
+  
   try {
+    // ดึงราคา Package
+    const pack = await prisma.package.findFirst({
+      where: { id: packageId }
+    });
+    
+
+    if (!pack) return res.status(404).json({ error: "Package not found" });
+
+    // สร้าง Omise Charge
     const charge = await omise.charges.create({
-      amount: amount * 100, // THB → Satang
+      amount: pack.price * 100,
       currency: "thb",
-      source: {
-        type: "promptpay"
+      source: { type: "promptpay" }
+    });
+
+    console.log("charge-id :", charge.id);
+    
+
+    // บันทึก Order ลง DB
+    const order = await prisma.order.create({
+      data: {
+        userId: userId,
+        packageId: packageId,
+        amount: pack.price,
+        chargeId: charge.id,
+        status: "pending"
       }
     });
 
-    orders[charge.id] = { status: "pending" };
-
-    res.json({
+    return res.json({
+      orderId: order.id,
       chargeId: charge.id,
       qr: charge.source.scannable_code.image.download_uri,
-      amount: charge.source.amount/100,
-        currency: charge.source.currency
+      amount: pack.price,
+      currency: "thb"
     });
 
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    return res.status(400).json({ error: err.message });
   }
 });
 
-router.get("/status/:id", (req, res) => {
-  const { id } = req.params;
-  res.json(orders[id] || { status: "unknown" });
+
+router.get("/status/:orderId", async (req, res) => {
+  const { orderId } = req.params;
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId }
+  });
+
+  if (!order) return res.json({ status: "unknown" });
+
+  return res.json({ status: order.status });
 });
+
 
 module.exports = router;
