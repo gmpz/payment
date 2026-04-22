@@ -11,6 +11,8 @@ const omise = require("omise")({
 const orders = {};
 
 router.post("/create", async (req, res) => {
+  console.log("on create");
+  
   
   const { userId, packageId } = req.body;
   
@@ -22,7 +24,7 @@ router.post("/create", async (req, res) => {
     
 
     if (!pack) return res.status(404).json({ error: "Package not found" });
-
+    console.log("pack : ", pack);
     // สร้าง Omise Charge
     const charge = await omise.charges.create({
       amount: pack.price * 100,
@@ -53,6 +55,8 @@ router.post("/create", async (req, res) => {
     });
 
   } catch (err) {
+    console.log("err : ", err);
+    
     return res.status(400).json({ error: err.message });
   }
 });
